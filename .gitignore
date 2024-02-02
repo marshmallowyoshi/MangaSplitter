@@ -3,3 +3,5 @@
 /test dir
 .vscode/launch.json
 requirements.txt
+/build
+/__pycache__
