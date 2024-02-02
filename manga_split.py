@@ -7,7 +7,6 @@ from argparse import ArgumentParser
 # sys.argv = ['']
 
 VOLUME_RE = re.compile(r'.*\.cb[zr]')
-CHAPTER_RE = re.compile(r'c(\d*)')
 
 def main():
     parser = ArgumentParser()
@@ -20,13 +19,13 @@ def main():
     if args.regex is not None:
         chapter_re = re.compile(args.regex)
     else:
-        chapter_re = CHAPTER_RE
+        chapter_re = 'c(\d+)'
 
     manga_list = [x for x in os.listdir(manga_dir) if re.match(VOLUME_RE, x)]
     for manga in manga_list:
-        split_manga(manga, manga_dir, cbz, chapter_re)
+        split_manga(manga, manga_dir, cbz, re.compile(chapter_re))
 
-def split_manga(manga, manga_dir, cbz=bool, chapter_re=CHAPTER_RE):
+def split_manga(manga, manga_dir, cbz:bool, chapter_re):
     with zipfile.ZipFile(os.path.join(manga_dir, manga), 'r') as manga_zip:
         extract_dir = os.path.join(manga_dir, manga[:-4])
         if not os.path.isdir(extract_dir):
