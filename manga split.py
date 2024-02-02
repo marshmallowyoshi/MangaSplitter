@@ -9,14 +9,11 @@ CHAPTER_RE = re.compile(r'c(\d*)')
 
 def main():
     parser = ArgumentParser()
-    parser.add_argument('-i', '--input', help='Input manga directory', metavar='path', required=True)
-    parser.add_argument('-c', '--compress', help='Compress manga', default=False, metavar='True/False', required=False)
+    parser.add_argument('-i', '--input', help='Input manga directory', metavar='path', required=True, type=os.path.abspath)
+    parser.add_argument('-c', '--compress', help='Compress manga', action='store_true')
     args = parser.parse_args()
     manga_dir = args.input
-    if args.compress == 'True':
-        cbz = True
-    else:
-        cbz = False
+    cbz = args.compress
         
     manga_list = [x for x in os.listdir(manga_dir) if re.match(VOLUME_RE, x)]
     for manga in manga_list:
