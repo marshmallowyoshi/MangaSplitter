@@ -3,6 +3,8 @@ import os
 import zipfile
 import shutil
 from argparse import ArgumentParser
+# import sys
+# sys.argv = ['']
 
 VOLUME_RE = re.compile(r'.*\.cb[zr]')
 CHAPTER_RE = re.compile(r'c(\d*)')
@@ -11,15 +13,20 @@ def main():
     parser = ArgumentParser()
     parser.add_argument('-i', '--input', help='Input manga directory', metavar='path', required=True, type=os.path.abspath)
     parser.add_argument('-c', '--compress', help='Compress manga', action='store_true')
+    parser.add_argument('-r', '--regex', help='Specify alternative regex pattern for chapter number', metavar='regex', required=False)
     args = parser.parse_args()
     manga_dir = args.input
     cbz = args.compress
-        
+    if args.regex is not None:
+        chapter_re = re.compile(args.regex)
+    else:
+        chapter_re = CHAPTER_RE
+
     manga_list = [x for x in os.listdir(manga_dir) if re.match(VOLUME_RE, x)]
     for manga in manga_list:
-        split_manga(manga, manga_dir, cbz)
+        split_manga(manga, manga_dir, cbz, chapter_re)
 
-def split_manga(manga, manga_dir, cbz=bool):
+def split_manga(manga, manga_dir, cbz=bool, chapter_re=CHAPTER_RE):
     with zipfile.ZipFile(os.path.join(manga_dir, manga), 'r') as manga_zip:
         extract_dir = os.path.join(manga_dir, manga[:-4])
         if not os.path.isdir(extract_dir):
@@ -30,7 +37,7 @@ def split_manga(manga, manga_dir, cbz=bool):
     
     pages, _ = folders_split(directory_list)
 
-    new_chapters = organise_chapters(pages, extract_dir)
+    new_chapters = organise_chapters(pages, extract_dir, chapter_re)
 
     if cbz:
         for chapter, _ in new_chapters.items():
@@ -51,11 +58,15 @@ def folders_split(directory):
             files.append(item)
     return files, folders
 
-def organise_chapters(files, extract_dir):
+def organise_chapters(files, extract_dir, chapter_re):
     if len(files) != 0:
         chapters = {}
         for page in files:
-            page_chapter = re.search(CHAPTER_RE, os.path.basename(page)).group(1)
+            try:
+                page_chapter = re.search(chapter_re, os.path.basename(page)).group(1)
+            except AttributeError:
+                print('No chapter number found in ', page, ', you may need to change the regex pattern')
+                
             if page_chapter not in chapters:
                 if not os.path.isdir(os.path.join(extract_dir, page_chapter)):
                     os.mkdir(os.path.join(extract_dir, page_chapter))
