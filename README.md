@@ -3,10 +3,9 @@ Split cbz format volumes into individual chapters for easier progress tracking i
 Requires python, uses only standard library so no extra packages required.
 
 
-USAGE:
+# USAGE:
 
-manga_split -i <path> -c
+*manga_split -i \<path\> -c*
 
--i "path"        relative path to directory containing volume cbz files
-
--c               include to compress chapters to cbz files after processing
+*-i \<path\>*&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;relative path to directory containing volume cbz files  
+*-c*&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;include to compress chapters to cbz files after processing
