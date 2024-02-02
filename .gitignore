@@ -1,2 +1,4 @@
 /.venv
 /manga
+/test dir
+.vscode/launch.json
