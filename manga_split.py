@@ -1,3 +1,4 @@
+import asyncio
 import re
 import os
 import zipfile
@@ -8,7 +9,7 @@ from argparse import ArgumentParser
 
 VOLUME_RE = re.compile(r'.*\.cb[zr]')
 
-def main():
+async def main():
     parser = ArgumentParser()
     parser.add_argument('-i', '--input', help='Input manga directory', metavar='path', required=True, type=os.path.abspath)
     parser.add_argument('-c', '--compress', help='Compress manga', action='store_true')
@@ -22,10 +23,10 @@ def main():
         chapter_re = 'c(\d+)'
 
     manga_list = [x for x in os.listdir(manga_dir) if re.match(VOLUME_RE, x)]
-    for manga in manga_list:
-        split_manga(manga, manga_dir, cbz, re.compile(chapter_re))
+    cors = [split_manga(manga, manga_dir, cbz, re.compile(chapter_re)) for manga in manga_list]
+    _ = await asyncio.gather(*cors)
 
-def split_manga(manga, manga_dir, cbz:bool, chapter_re):
+async def split_manga(manga, manga_dir, cbz:bool, chapter_re):
     with zipfile.ZipFile(os.path.join(manga_dir, manga), 'r') as manga_zip:
         extract_dir = os.path.join(manga_dir, manga[:-4])
         if not os.path.isdir(extract_dir):
@@ -42,7 +43,7 @@ def split_manga(manga, manga_dir, cbz:bool, chapter_re):
         for chapter, _ in new_chapters.items():
             compress_chapter(chapter, extract_dir, manga_dir)
         shutil.rmtree(extract_dir)
-
+    await asyncio.sleep(0)
     print('Finished processing ', manga)
 
     return extract_dir
@@ -87,4 +88,4 @@ def compress_chapter(chapter_num, extract_dir, manga_dir):
             chapter_zip.write(path, compress_names[idx], compress_type=zipfile.ZIP_DEFLATED)
 
 if __name__ == '__main__':
-    main()
+    asyncio.run(main())
