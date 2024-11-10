@@ -2,7 +2,6 @@
 /manga
 /test dir
 .vscode/launch.json
-requirements.txt
 /build
 /__pycache__
 /MangaSplitter.egg-info
