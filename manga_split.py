@@ -89,7 +89,7 @@ def compress_chapter(chapter_num, extract_dir, manga_dir):
     chapter_path = os.path.join(extract_dir, chapter_num)
     output_dir = os.path.join(manga_dir, os.path.basename(manga_dir))
     os.makedirs(output_dir, exist_ok=True)
-    cbz_path = os.path.join(output_dir, f'{os.path.basename(extract_dir)} ch.{chapter_num}.cbz')
+    cbz_path = os.path.join(output_dir, f'{os.path.basename(extract_dir)} ch. {chapter_num}.cbz')
     with zipfile.ZipFile(cbz_path, 'w') as zf:
         for file in os.listdir(chapter_path):
             file_path = os.path.join(chapter_path, file)
