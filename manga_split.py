@@ -4,8 +4,7 @@ import os
 import zipfile
 import shutil
 from argparse import ArgumentParser
-# import sys
-# sys.argv = ['']
+import timeit
 
 VOLUME_RE = re.compile(r'.*\.cb[zr]')
 
@@ -17,75 +16,85 @@ async def main():
     args = parser.parse_args()
     manga_dir = args.input
     cbz = args.compress
-    if args.regex is not None:
+    
+    # Compile regex once
+    if args.regex:
         chapter_re = re.compile(args.regex)
     else:
-        chapter_re = 'c(\d+)'
+        chapter_re = re.compile(r'c(\d+)')  # Pre-compile default regex
 
-    manga_list = [x for x in os.listdir(manga_dir) if re.match(VOLUME_RE, x)]
-    cors = [split_manga(manga, manga_dir, cbz, re.compile(chapter_re)) for manga in manga_list]
-    _ = await asyncio.gather(*cors)
+    manga_list = [x for x in os.listdir(manga_dir) if VOLUME_RE.match(x)]
+    cors = [split_manga(manga, manga_dir, cbz, chapter_re) for manga in manga_list]
+    await asyncio.gather(*cors)
 
-async def split_manga(manga, manga_dir, cbz:bool, chapter_re):
-    with zipfile.ZipFile(os.path.join(manga_dir, manga), 'r') as manga_zip:
-        extract_dir = os.path.join(manga_dir, manga[:-4])
-        if not os.path.isdir(extract_dir):
-            os.mkdir(extract_dir)
-        manga_zip.extractall(extract_dir)
+async def split_manga(manga, manga_dir, cbz: bool, chapter_re):
+    zip_path = os.path.join(manga_dir, manga)
+    extract_dir = os.path.join(manga_dir, manga[:-4])
     
-    directory_list = [os.path.join(extract_dir, x) for x in os.listdir(extract_dir)]
+    # Extract ZIP in a thread
+    await asyncio.to_thread(extract_zip, zip_path, extract_dir)
     
-    pages, _ = folders_split(directory_list)
-
-    new_chapters = organise_chapters(pages, extract_dir, chapter_re)
-
+    # Process files and folders
+    directory_list = await asyncio.to_thread(lambda: [os.path.join(extract_dir, x) for x in os.listdir(extract_dir)])
+    files, _ = await asyncio.to_thread(folders_split, directory_list)
+    
+    # Organize chapters in a thread
+    new_chapters = await organise_chapters(files, extract_dir, chapter_re)
+    
     if cbz:
-        for chapter, _ in new_chapters.items():
-            compress_chapter(chapter, extract_dir, manga_dir)
-        shutil.rmtree(extract_dir)
-    await asyncio.sleep(0)
-    print('Finished processing ', manga)
-
+        # Compress all chapters concurrently
+        compress_tasks = [asyncio.to_thread(compress_chapter, ch, extract_dir, manga_dir) for ch in new_chapters]
+        await asyncio.gather(*compress_tasks)
+        # Remove directory in a thread
+        await asyncio.to_thread(shutil.rmtree, extract_dir)
+    
+    print('Finished processing', manga)
     return extract_dir
 
+def extract_zip(zip_path, extract_dir):
+    """Synchronous function to extract ZIP."""
+    with zipfile.ZipFile(zip_path, 'r') as manga_zip:
+        os.makedirs(extract_dir, exist_ok=True)
+        manga_zip.extractall(extract_dir)
+
 def folders_split(directory):
+    """Synchronously split into files and folders."""
     files = []
     folders = []
     for item in directory:
-        if os.path.isdir(item):
-            folders.append(item)
-        else:
-            files.append(item)
+        (folders if os.path.isdir(item) else files).append(item)
     return files, folders
 
-def organise_chapters(files, extract_dir, chapter_re):
-    if len(files) != 0:
-        chapters = {}
-        for page in files:
-            try:
-                page_chapter = re.search(chapter_re, os.path.basename(page)).group(1)
-            except AttributeError:
-                print('No chapter number found in ', page, ', you may need to change the regex pattern')
-                
-            if page_chapter not in chapters:
-                if not os.path.isdir(os.path.join(extract_dir, page_chapter)):
-                    os.mkdir(os.path.join(extract_dir, page_chapter))
-                    chapters[page_chapter] = []
-            shutil.move(page, os.path.join(extract_dir, page_chapter))
-            chapters[page_chapter].append(page)
-    else:
-        print('No pages found')
-
+async def organise_chapters(files, extract_dir, chapter_re):
+    """Organize chapters using threads for I/O."""
+    chapters = {}
+    for page in files:
+        match = chapter_re.search(os.path.basename(page))
+        if not match:
+            print(f'No chapter found in {page}')
+            continue
+        page_chapter = match.group(1)
+        chapter_dir = os.path.join(extract_dir, page_chapter)
+        # Create dir if needed
+        if not await asyncio.to_thread(os.path.exists, chapter_dir):
+            await asyncio.to_thread(os.makedirs, chapter_dir, exist_ok=True)
+        # Move file
+        dest = os.path.join(chapter_dir, os.path.basename(page))
+        await asyncio.to_thread(shutil.move, page, dest)
+        chapters.setdefault(page_chapter, []).append(page)
     return chapters
 
 def compress_chapter(chapter_num, extract_dir, manga_dir):
-    compress_paths = [os.path.join(extract_dir, chapter_num, x) for x in os.listdir(os.path.join(extract_dir, chapter_num))]
-    compress_names = [x for x in os.listdir(os.path.join(extract_dir, chapter_num))]
-    if not os.path.isdir(os.path.join(manga_dir, os.path.basename(manga_dir))):
-        os.mkdir(os.path.join(manga_dir, os.path.basename(manga_dir)))
-    with zipfile.ZipFile(os.path.join(manga_dir, os.path.basename(manga_dir), os.path.basename(extract_dir) + ' ch. ' + chapter_num + '.cbz'), 'w') as chapter_zip:
-        for idx, path in enumerate(compress_paths):
-            chapter_zip.write(path, compress_names[idx], compress_type=zipfile.ZIP_DEFLATED)
+    """Synchronous compression."""
+    chapter_path = os.path.join(extract_dir, chapter_num)
+    output_dir = os.path.join(manga_dir, os.path.basename(manga_dir))
+    os.makedirs(output_dir, exist_ok=True)
+    cbz_path = os.path.join(output_dir, f'{os.path.basename(extract_dir)} ch. {chapter_num}.cbz')
+    with zipfile.ZipFile(cbz_path, 'w') as zf:
+        for file in os.listdir(chapter_path):
+            file_path = os.path.join(chapter_path, file)
+            zf.write(file_path, arcname=file, compress_type=zipfile.ZIP_DEFLATED)
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    time_taken = timeit.timeit(lambda: asyncio.run(main()), number=1)
+    print(f"Time taken: {time_taken:.2f} seconds")
