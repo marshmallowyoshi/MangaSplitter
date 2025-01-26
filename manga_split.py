@@ -4,6 +4,7 @@ import os
 import zipfile
 import shutil
 from argparse import ArgumentParser
+import timeit
 
 VOLUME_RE = re.compile(r'.*\.cb[zr]')
 
@@ -95,4 +96,5 @@ def compress_chapter(chapter_num, extract_dir, manga_dir):
             zf.write(file_path, arcname=file, compress_type=zipfile.ZIP_DEFLATED)
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    time_taken = timeit.timeit(lambda: asyncio.run(main()), number=1)
+    print(f"Time taken: {time_taken:.2f} seconds")
