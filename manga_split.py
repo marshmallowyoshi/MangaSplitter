@@ -35,8 +35,7 @@ async def split_manga(manga, manga_dir, cbz: bool, chapter_re):
     await asyncio.to_thread(extract_zip, zip_path, extract_dir)
     
     # Process files and folders
-    directory_list = await asyncio.to_thread(lambda: [os.path.join(extract_dir, x) for x in os.listdir(extract_dir)])
-    files, _ = await asyncio.to_thread(folders_split, directory_list)
+    files, _ = await asyncio.to_thread(folders_split, extract_dir)
     
     # Organize chapters in a thread
     new_chapters = await organise_chapters(files, extract_dir, chapter_re)
@@ -61,8 +60,11 @@ def folders_split(directory):
     """Synchronously split into files and folders."""
     files = []
     folders = []
-    for item in directory:
-        (folders if os.path.isdir(item) else files).append(item)
+    for dirpath, dirnames, filenames in os.walk(directory):
+        for dirname in dirnames:
+            folders.append(os.path.join(dirpath, dirname))
+        for filename in filenames:
+            files.append(os.path.join(dirpath, filename))
     return files, folders
 
 async def organise_chapters(files, extract_dir, chapter_re):
