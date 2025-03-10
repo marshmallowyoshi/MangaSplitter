@@ -71,7 +71,7 @@ async def organise_chapters(files, extract_dir, chapter_re):
     """Organize chapters using threads for I/O."""
     chapters = {}
     for page in files:
-        match = chapter_re.search(os.path.basename(page))
+        match = chapter_re.search(os.path.relpath(page, extract_dir))
         if not match:
             print(f'No chapter found in {page}')
             continue
