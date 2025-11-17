@@ -2,6 +2,29 @@ Split cbz format volumes into individual chapters for easier progress tracking i
 
 Requires python, uses only standard library so no extra packages required.
 
+# INSTALLATION:
+
+## Method 1: Using pip (recommended)
+`pip install manga-split`
+
+## Method 2: From source
+1. Clone repository  
+   `git clone <repository-url>`
+2. Navigate to project directory
+   `cd MangaSplitter`
+3. Install package
+   `pip install .`
+
+# DEVELOPMENT SETUP:
+1. Clone repository  
+   `git clone <repository-url>`
+2. Navigate to project directory
+   `cd MangaSplitter`
+3. (Optional) Create and activate virtual environment
+   `python -m venv .venv`
+   `.\.venv\Scripts\activate` (Windows) or `source .venv/bin/activate` (MacOS/Linux)
+4. Install package
+    `pip install -e .`
 
 # USAGE:
 
