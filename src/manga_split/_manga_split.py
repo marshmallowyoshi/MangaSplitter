@@ -1,113 +1,193 @@
+"""Manga Splitter main module."""
+
 import asyncio
 import logging
-from pathlib import Path
-import re
 import os
-import zipfile
+import re
 import shutil
-from argparse import ArgumentParser, Namespace
 import timeit
+import zipfile
+from argparse import ArgumentParser, Namespace
+from pathlib import Path
 
-VOLUME_RE = re.compile(r'.*\.cb[zr]')
+VOLUME_RE = re.compile(r".*\.cb[zr]")
+CHAPTER_RE = re.compile(r"c(\d+)")  # Default regex pattern
+
 
 def main():
     """Main argument parser"""
     logger = logging.getLogger("manga_split")
     logger.addHandler(logging.StreamHandler())
     parser = ArgumentParser()
-    parser.add_argument('-i', '--input', help='Input manga directory', metavar='path', required=True, type=Path)
-    parser.add_argument('-c', '--compress', help='Compress manga', action='store_true')
-    parser.add_argument('-r', '--regex', help='Specify alternative regex pattern for chapter number', metavar='regex', required=False)
-    parser.add_argument('-v', '--verbose', help='Verbose output (includes time taken measurement)', action='store_true')
+    parser.add_argument(
+        "-i",
+        "--input",
+        help="Input manga directory",
+        metavar="path",
+        required=True,
+        type=Path,
+    )
+    parser.add_argument(
+        "-c", "--compress", help="Compress manga", action="store_true"
+    )
+    parser.add_argument(
+        "-r",
+        "--regex",
+        help="Specify alternative regex pattern for chapter number",
+        metavar="regex",
+        required=False,
+    )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        help="Verbose output (includes time taken measurement)",
+        action="store_true",
+    )
     args = parser.parse_args()
     if args.verbose:
         logger.setLevel(logging.DEBUG)
-        time_taken = timeit.timeit(lambda: asyncio.run(run_manga_split(args)), number=1)
-        print(f"Time taken: {time_taken:.2f} seconds")
+        time_taken = timeit.timeit(
+            lambda: _parse_args_to_run_manga_split(args), number=1
+        )
+        logger.info("Time taken: %.2f seconds", time_taken)
     else:
-        asyncio.run(run_manga_split(args))
+        _parse_args_to_run_manga_split(args)
 
 
-async def run_manga_split(args: Namespace) -> None:
-    """Asynchronous main function"""
+async def _run_manga_split_async(
+    manga_dir: Path, cbz: bool, chapter_re: re.Pattern
+) -> None:
+    """Async layer of manga splitter main function."""
+    manga_list = [
+        manga_dir / x for x in os.listdir(manga_dir) if VOLUME_RE.match(x)
+    ]
+    cors = [
+        split_manga(manga, manga_dir, cbz, chapter_re) for manga in manga_list
+    ]
+    await asyncio.gather(*cors)
+
+
+def run_manga_split(
+    manga_dir: Path, cbz: bool = False, chapter_re: re.Pattern = CHAPTER_RE
+) -> None:
+    """
+    Splits the manga in the given directory into chapters.
+
+    Args:
+        manga_dir (Path): Path to the manga directory.
+        cbz (bool): Whether to compress chapters into CBZ files.
+        chapter_re (re.Pattern): Compiled regex pattern to identify
+            chapter numbers.
+    """
+    asyncio.run(_run_manga_split_async(manga_dir, cbz, chapter_re))
+
+
+def _parse_args_to_run_manga_split(args: Namespace):
+    """Convert command line arguments to python objects."""
     manga_dir: Path = args.input
     cbz: bool = args.compress
-    
-    # Compile regex once
     if args.regex:
         chapter_re = re.compile(args.regex)
     else:
-        chapter_re = re.compile(r'c(\d+)')  # Pre-compile default regex
+        chapter_re = CHAPTER_RE
 
-    manga_list = [manga_dir / x for x in os.listdir(manga_dir) if VOLUME_RE.match(x)]
-    cors = [split_manga(manga, manga_dir, cbz, chapter_re) for manga in manga_list]
-    await asyncio.gather(*cors)
+    return run_manga_split(manga_dir, cbz, chapter_re)
 
-async def split_manga(manga: Path, manga_dir: Path, cbz: bool, chapter_re: re.Pattern) -> Path:
+
+async def split_manga(
+    manga: Path, manga_dir: Path, cbz: bool, chapter_re: re.Pattern
+) -> Path:
+    """Split a single manga volume into chapters.
+
+    Args:
+        manga (Path): Path to the manga ZIP file.
+        manga_dir (Path): Directory where the manga is located.
+        cbz (bool): Whether to compress chapters into CBZ files.
+        chapter_re (re.Pattern): Compiled regex pattern to identify
+            chapter numbers.
+
+    Returns:
+        Path: The path to the extracted manga directory.
+    """
+
     extract_dir = manga_dir / manga.stem
 
     # Extract ZIP in a thread
     await asyncio.to_thread(extract_zip, manga, extract_dir)
-    
+
     # Process files and folders
     files, _ = await asyncio.to_thread(folders_split, extract_dir)
-    
+
     # Organize chapters in a thread
     new_chapters = await organise_chapters(files, extract_dir, chapter_re)
-    
+
     if cbz:
         # Compress all chapters concurrently
-        compress_tasks = [asyncio.to_thread(compress_chapter, ch, extract_dir, manga_dir) for ch in new_chapters]
+        compress_tasks = [
+            asyncio.to_thread(compress_chapter, ch, extract_dir, manga_dir)
+            for ch in new_chapters
+        ]
         await asyncio.gather(*compress_tasks)
         # Remove directory in a thread
         await asyncio.to_thread(shutil.rmtree, extract_dir)
-    
-    logging.getLogger("manga_split").info('Finished processing %s', manga)
+
+    logging.getLogger("manga_split").info("Finished processing %s", manga)
     return extract_dir
 
+
 def extract_zip(zip_path: Path, extract_dir: Path) -> None:
-    """Synchronous function to extract ZIP."""
-    with zipfile.ZipFile(zip_path, 'r') as manga_zip:
+    """Extract a zipfile (`.cbz` or `.cbr`) to a target directory."""
+    with zipfile.ZipFile(zip_path, "r") as manga_zip:
         os.makedirs(extract_dir, exist_ok=True)
         manga_zip.extractall(extract_dir)
 
-def folders_split(directory: Path) -> tuple[list[str], list[str]]:
+
+def folders_split(directory: Path) -> tuple[list[Path], list[Path]]:
     """Synchronously split into files and folders."""
     files = []
     folders = []
-    for dirpath, dirnames, filenames in os.walk(directory):
-        for dirname in dirnames:
-            folders.append(os.path.join(dirpath, dirname))
+    for dirpath, dirnames, filenames in directory.walk():
+        if dirnames:
+            logging.getLogger("manga_split").warning(
+                "Found unexpected subfolders in %s: %s", dirpath, dirnames
+            )
         for filename in filenames:
-            files.append(os.path.join(dirpath, filename))
+            files.append(dirpath / filename)
     return files, folders
 
-async def organise_chapters(files: list[str], extract_dir: Path, chapter_re: re.Pattern) -> dict[str, list[str]]:
+
+async def organise_chapters(
+    files: list[Path], extract_dir: Path, chapter_re: re.Pattern
+) -> dict[str, list[Path]]:
     """Organize chapters using threads for I/O."""
-    chapters = {}
+    chapters: dict[str, list[Path]] = {}
     for page in files:
         match = chapter_re.search(os.path.relpath(page, extract_dir))
         if not match:
-            print(f'No chapter found in {page}')
+            logging.getLogger("manga_split").warning(
+                "No chapter found in page %s", page
+            )
             continue
         page_chapter = match.group(1)
-        chapter_dir = os.path.join(extract_dir, page_chapter)
-        # Create dir if needed
-        if not await asyncio.to_thread(os.path.exists, chapter_dir):
-            await asyncio.to_thread(os.makedirs, chapter_dir, exist_ok=True)
+        chapter_dir = extract_dir / page_chapter
+        await asyncio.to_thread(os.makedirs, chapter_dir, exist_ok=True)
         # Move file
-        dest = os.path.join(chapter_dir, os.path.basename(page))
+        dest = chapter_dir / page.name
         await asyncio.to_thread(shutil.move, page, dest)
         chapters.setdefault(page_chapter, []).append(page)
     return chapters
 
-def compress_chapter(chapter_num: str, extract_dir: Path, manga_dir: Path) -> None:
+
+def compress_chapter(
+    chapter_num: str, extract_dir: Path, manga_dir: Path
+) -> None:
     """Synchronous compression."""
-    chapter_path = os.path.join(extract_dir, chapter_num)
-    output_dir = os.path.join(manga_dir, os.path.basename(manga_dir))
+    chapter_path = extract_dir / chapter_num
+    output_dir = manga_dir
     os.makedirs(output_dir, exist_ok=True)
-    cbz_path = os.path.join(output_dir, f'{os.path.basename(extract_dir)} ch. {chapter_num}.cbz')
-    with zipfile.ZipFile(cbz_path, 'w') as zf:
-        for file in os.listdir(chapter_path):
-            file_path = os.path.join(chapter_path, file)
-            zf.write(file_path, arcname=file, compress_type=zipfile.ZIP_DEFLATED)
+    cbz_path = output_dir / f"{extract_dir.name} ch{chapter_num}.cbz"
+    with zipfile.ZipFile(cbz_path, "w") as zf:
+        for file in chapter_path.iterdir():
+            zf.write(
+                file, arcname=file.name, compress_type=zipfile.ZIP_DEFLATED
+            )
