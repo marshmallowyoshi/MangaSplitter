@@ -1,0 +1,26 @@
+[project]
+name = "manga_split"
+version = "1.0.0"
+description = "A tool to split manga volume archives into separated archives or folders, based on chapter markers in filenames."
+authors = [{ name = "Joshua Taylor", email = "joshuataylor574@gmail.com" }]
+readme = "README.md"
+license = { file = "LICENSE" }
+
+[project.scripts]
+manga-split = "manga_split:main"
+
+[project.optional-dependencies]
+dev = [
+    "black",
+    "isort",
+    "pylint",
+    "pytest",
+    "pytest-cov",
+]
+
+[tool.black]
+line-length = 79
+
+[tool.isort]
+profile = "black"
+

@@ -7,7 +7,7 @@ from typing import Callable
 import pytest
 
 import manga_split
-from manga_split._manga_split import folders_split, main
+from manga_split._manga_split import folders_split
 
 # factories have function scope to give
 # unique folder per test
@@ -253,7 +253,7 @@ def test_mock_commandline(
             "-c",
         ],
     )
-    main()
+    manga_split.main()
     expected_output_files = [
         manga_dir / "multi_chapter_manga ch001.cbz",
         manga_dir / "multi_chapter_manga ch002.cbz",
@@ -284,7 +284,7 @@ def test_mock_commandline_verbose(
         ],
     )
     with caplog.at_level(logging.INFO, logger="manga_split"):
-        main()
+        manga_split.main()
     expected_output_files = [
         manga_dir / "multi_chapter_manga ch001.cbz",
         manga_dir / "multi_chapter_manga ch002.cbz",
@@ -318,7 +318,7 @@ def test_mock_commandline_custom_regex(
             r"c(\d+)",  # same as default but testing custom regex handling
         ],
     )
-    main()
+    manga_split.main()
     expected_output_files = [
         manga_dir / "multi_chapter_manga ch001.cbz",
         manga_dir / "multi_chapter_manga ch002.cbz",
