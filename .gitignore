@@ -1,7 +1,8 @@
 /.venv
 /manga
-/test dir
-.vscode/launch.json
+.vscode
 /build
-/__pycache__
-/MangaSplitter.egg-info
+**/*.egg-info
+dist
+*.pyc
+.coverage
