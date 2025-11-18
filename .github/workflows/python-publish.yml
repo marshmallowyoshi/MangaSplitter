@@ -26,9 +26,14 @@ jobs:
         with:
           python-version: "3.x"
 
+      - name: Install build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install build
+
       - name: Build release distributions
         run: |
-          python -m build . --sdist --wheel
+          python -m build --sdist --wheel
 
       - name: Upload distributions
         uses: actions/upload-artifact@v4
@@ -49,7 +54,7 @@ jobs:
     environment:
       name: pypi
       # OPTIONAL: uncomment and update to include your PyPI project URL in the deployment status:
-      # url: https://pypi.org/p/YOURPROJECT
+      url: https://pypi.org/p/manga-split
       #
       # ALTERNATIVE: if your GitHub Release name is the PyPI project version string
       # ALTERNATIVE: exactly, uncomment the following line instead:
@@ -61,6 +66,12 @@ jobs:
         with:
           name: release-dists
           path: dist/
+
+      - name: Verify distributions
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install twine
+          python -m twine check dist/*
 
       - name: Publish release distributions to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
