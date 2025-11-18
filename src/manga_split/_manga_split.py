@@ -15,7 +15,7 @@ CHAPTER_RE = re.compile(r"c(\d+)")  # Default regex pattern
 
 
 def main():
-    """Main argument parser"""
+    """Main entrypoint for manga splitter CLI."""
     logger = logging.getLogger("manga_split")
     logger.addHandler(logging.StreamHandler())
     parser = ArgumentParser()
@@ -61,10 +61,15 @@ async def _run_manga_split_async(
     manga_list = [
         manga_dir / x for x in os.listdir(manga_dir) if VOLUME_RE.match(x)
     ]
-    cors = [
+    if not manga_list:
+        logging.getLogger("manga_split").warning(
+            "No manga files ('*.cbz' or '*.cbr') found in %s", manga_dir
+        )
+        return
+    split_coroutines = [
         split_manga(manga, manga_dir, cbz, chapter_re) for manga in manga_list
     ]
-    await asyncio.gather(*cors)
+    await asyncio.gather(*split_coroutines)
 
 
 def run_manga_split(
@@ -82,12 +87,18 @@ def run_manga_split(
     asyncio.run(_run_manga_split_async(manga_dir, cbz, chapter_re))
 
 
-def _parse_args_to_run_manga_split(args: Namespace):
+def _parse_args_to_run_manga_split(args: Namespace) -> None:
     """Convert command line arguments to python objects."""
     manga_dir: Path = args.input
     cbz: bool = args.compress
     if args.regex:
-        chapter_re = re.compile(args.regex)
+        try:
+            chapter_re = re.compile(args.regex)
+        except re.error as e:
+            logging.getLogger("manga_split").error(
+                "Invalid regex pattern provided: %s", e
+            )
+            return
     else:
         chapter_re = CHAPTER_RE
 
@@ -135,11 +146,26 @@ async def split_manga(
     return extract_dir
 
 
+def safe_extract_zip(zip_file: zipfile.ZipFile, extract_dir: Path) -> None:
+    """Safely extract zip file contents to extract_dir,
+    preventing path traversal."""
+    for member in zip_file.namelist():
+        member_path = extract_dir / member
+        # Resolve the absolute path and ensure it's within extract_dir
+        abs_extract_dir = extract_dir.resolve()
+        abs_member_path = member_path.resolve()
+        if not str(abs_member_path).startswith(str(abs_extract_dir)):
+            raise RuntimeError(
+                f"Attempted Path Traversal in Zip File: {member}"
+            )
+        zip_file.extract(member, extract_dir)
+
+
 def extract_zip(zip_path: Path, extract_dir: Path) -> None:
     """Extract a zipfile (`.cbz` or `.cbr`) to a target directory."""
     with zipfile.ZipFile(zip_path, "r") as manga_zip:
         os.makedirs(extract_dir, exist_ok=True)
-        manga_zip.extractall(extract_dir)
+        safe_extract_zip(manga_zip, extract_dir)
 
 
 def folders_split(directory: Path) -> tuple[list[Path], list[Path]]:
@@ -174,7 +200,7 @@ async def organise_chapters(
         # Move file
         dest = chapter_dir / page.name
         await asyncio.to_thread(shutil.move, page, dest)
-        chapters.setdefault(page_chapter, []).append(page)
+        chapters.setdefault(page_chapter, []).append(dest)
     return chapters
 
 

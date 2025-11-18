@@ -166,7 +166,7 @@ def test_split_manga_single_volume(
         )
 
 
-def test_plit_manga_no_compression(
+def test_split_manga_no_compression(
     mock_multiple_chapter_manga_volume: pathlib.Path,
 ):
     manga_dir = mock_multiple_chapter_manga_volume.parent
@@ -182,7 +182,7 @@ def test_plit_manga_no_compression(
         )
         assert len(list(output_dir.iterdir())) == 2, (
             f"Expected 2 files in {output_dir},"
-            f" found {len(list(output_dir.iterdir()))}.)"
+            f" found {len(list(output_dir.iterdir()))}."
         )
 
 
@@ -330,6 +330,29 @@ def test_mock_commandline_custom_regex(
         )
 
 
+def test_invalid_regex(
+    tmp_path: pathlib.Path,
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    manga_dir = tmp_path / "manga"
+    manga_dir.mkdir()
+    with caplog.at_level(logging.ERROR, logger="manga_split"):
+        # Mock command-line arguments with invalid regex
+        monkeypatch.setattr(
+            "sys.argv",
+            [
+                "manga_split",  # script name
+                "-i",
+                str(manga_dir),
+                "-c",
+                "-r",
+                r"c(\d+",  # Invalid regex (missing closing parenthesis)
+            ],
+        )
+        manga_split.main()
+
+
 def test_folders_split_unexpected_subfolder(
     tmp_path: pathlib.Path,
     caplog: pytest.LogCaptureFixture,
@@ -348,3 +371,19 @@ def test_folders_split_unexpected_subfolder(
         "Found unexpected subfolders" in record.message
         for record in caplog.records
     ), "Expected warning about unexpected subfolders not found."
+
+
+def test_empty_manga_directory(
+    tmp_path: pathlib.Path,
+    caplog: pytest.LogCaptureFixture,
+):
+    manga_dir = tmp_path / "empty_manga"
+    manga_dir.mkdir()
+
+    with caplog.at_level(logging.INFO, logger="manga_split"):
+        manga_split.run_manga_split(manga_dir, cbz=True)
+
+    assert any(
+        "No manga files ('*.cbz' or '*.cbr') found in" in record.message
+        for record in caplog.records
+    ), "Expected info log about no manga files not found."
