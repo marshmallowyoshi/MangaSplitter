@@ -5,7 +5,8 @@ version = "1.0.0"
 description = "A tool to split manga volume archives into separated archives or folders, based on chapter markers in filenames."
 authors = [{ name = "Joshua Taylor", email = "joshuataylor574@gmail.com" }]
 readme = "README.md"
-license = { file = "LICENSE" }
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
 requires-python = ">=3.9"
 
 [build-system]
