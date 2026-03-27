@@ -170,8 +170,8 @@ def extract_zip(zip_path: Path, extract_dir: Path) -> None:
 
 def folders_split(directory: Path) -> tuple[list[Path], list[Path]]:
     """Synchronously split into files and folders."""
-    files = []
-    folders = []
+    files: list[Path] = []
+    folders: list[Path] = []
     for dirpath, dirnames, filenames in directory.walk():
         if dirnames:
             logging.getLogger("manga_split").warning(
