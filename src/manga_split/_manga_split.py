@@ -126,7 +126,7 @@ async def split_manga(
     # Extract ZIP in a thread
     await asyncio.to_thread(extract_zip, manga, extract_dir)
 
-    # Process files and folders
+    # Collect extracted files
     files = await asyncio.to_thread(folders_split, extract_dir)
 
     # Organize chapters in a thread
@@ -169,15 +169,15 @@ def extract_zip(zip_path: Path, extract_dir: Path) -> None:
 
 
 def folders_split(directory: Path) -> list[Path]:
-    """Synchronously split into files."""
+    """Recursively collect files in a directory."""
     files: list[Path] = []
-    for dirpath, dirnames, filenames in directory.walk():
-        if dirnames:
+    for path in directory.rglob("*"):
+        if path.is_dir():
             logging.getLogger("manga_split").warning(
-                "Found unexpected subfolders in %s: %s", dirpath, dirnames
+                "Found unexpected subfolders in %s: %s", directory, path
             )
-        for filename in filenames:
-            files.append(dirpath / filename)
+        else:
+            files.append(path)
     return files
 
 
