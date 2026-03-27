@@ -4,5 +4,6 @@
 /build
 **/*.egg-info
 dist
+.idea
 *.pyc
 .coverage

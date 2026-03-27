@@ -98,7 +98,7 @@ def _parse_args_to_run_manga_split(args: Namespace) -> None:
             logging.getLogger("manga_split").error(
                 "Invalid regex pattern provided: %s", e
             )
-            return
+            return None
     else:
         chapter_re = CHAPTER_RE
 
