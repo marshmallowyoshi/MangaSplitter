@@ -1,7 +1,7 @@
 
 [project]
 name = "manga_split"
-version = "1.0.0"
+version = "1.0.1"
 description = "A tool to split manga volume archives into separated archives or folders, based on chapter markers in filenames."
 authors = [{ name = "Joshua Taylor", email = "joshuataylor574@gmail.com" }]
 readme = "README.md"
