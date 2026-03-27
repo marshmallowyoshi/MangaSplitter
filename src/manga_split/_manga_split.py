@@ -172,12 +172,12 @@ def folders_split(directory: Path) -> list[Path]:
     """Recursively collect files in a directory."""
     files: list[Path] = []
     for path in directory.rglob("*"):
-        if path.is_dir():
-            logging.getLogger("manga_split").warning(
-                "Found unexpected subfolders in %s: %s", directory, path
-            )
-        else:
+        if path.is_file():
             files.append(path)
+        else:
+            logging.getLogger("manga_split").warning(
+                "Unexpected directory found during file collection: %s", path
+            )
     return files
 
 
