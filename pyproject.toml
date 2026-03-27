@@ -19,7 +19,7 @@ where = ["src"]
 [project.scripts]
 manga-split = "manga_split:main"
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = ["black", "isort", "pylint", "pytest", "pytest-cov"]
 
 

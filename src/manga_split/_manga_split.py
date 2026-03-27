@@ -98,7 +98,7 @@ def _parse_args_to_run_manga_split(args: Namespace) -> None:
             logging.getLogger("manga_split").error(
                 "Invalid regex pattern provided: %s", e
             )
-            return
+            return None
     else:
         chapter_re = CHAPTER_RE
 
@@ -126,8 +126,8 @@ async def split_manga(
     # Extract ZIP in a thread
     await asyncio.to_thread(extract_zip, manga, extract_dir)
 
-    # Process files and folders
-    files, _ = await asyncio.to_thread(folders_split, extract_dir)
+    # Collect extracted files
+    files = await asyncio.to_thread(folders_split, extract_dir)
 
     # Organize chapters in a thread
     new_chapters = await organise_chapters(files, extract_dir, chapter_re)
@@ -168,18 +168,17 @@ def extract_zip(zip_path: Path, extract_dir: Path) -> None:
         safe_extract_zip(manga_zip, extract_dir)
 
 
-def folders_split(directory: Path) -> tuple[list[Path], list[Path]]:
-    """Synchronously split into files and folders."""
-    files = []
-    folders = []
-    for dirpath, dirnames, filenames in directory.walk():
-        if dirnames:
+def folders_split(directory: Path) -> list[Path]:
+    """Recursively collect files in a directory."""
+    files: list[Path] = []
+    for path in directory.rglob("*"):
+        if path.is_file():
+            files.append(path)
+        else:
             logging.getLogger("manga_split").warning(
-                "Found unexpected subfolders in %s: %s", dirpath, dirnames
+                "Unexpected directory found during file collection: %s", path
             )
-        for filename in filenames:
-            files.append(dirpath / filename)
-    return files, folders
+    return files
 
 
 async def organise_chapters(

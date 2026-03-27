@@ -368,7 +368,7 @@ def test_folders_split_unexpected_subfolder(
         folders_split(manga_dir)
 
     assert any(
-        "Found unexpected subfolders" in record.message
+        "Unexpected directory found during file collection" in record.message
         for record in caplog.records
     ), "Expected warning about unexpected subfolders not found."
 
