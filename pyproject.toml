@@ -7,7 +7,7 @@ authors = [{ name = "Joshua Taylor", email = "joshuataylor574@gmail.com" }]
 readme = "README.md"
 license = "GPL-3.0-or-later"
 license-files = ["LICENSE"]
-requires-python = ">=3.9"
+requires-python = ">=3.12"
 
 [build-system]
 requires = ["setuptools>=61.0", "wheel"]

@@ -127,7 +127,7 @@ async def split_manga(
     await asyncio.to_thread(extract_zip, manga, extract_dir)
 
     # Process files and folders
-    files, _ = await asyncio.to_thread(folders_split, extract_dir)
+    files = await asyncio.to_thread(folders_split, extract_dir)
 
     # Organize chapters in a thread
     new_chapters = await organise_chapters(files, extract_dir, chapter_re)
@@ -168,10 +168,9 @@ def extract_zip(zip_path: Path, extract_dir: Path) -> None:
         safe_extract_zip(manga_zip, extract_dir)
 
 
-def folders_split(directory: Path) -> tuple[list[Path], list[Path]]:
-    """Synchronously split into files and folders."""
+def folders_split(directory: Path) -> list[Path]:
+    """Synchronously split into files."""
     files: list[Path] = []
-    folders: list[Path] = []
     for dirpath, dirnames, filenames in directory.walk():
         if dirnames:
             logging.getLogger("manga_split").warning(
@@ -179,7 +178,7 @@ def folders_split(directory: Path) -> tuple[list[Path], list[Path]]:
             )
         for filename in filenames:
             files.append(dirpath / filename)
-    return files, folders
+    return files
 
 
 async def organise_chapters(
